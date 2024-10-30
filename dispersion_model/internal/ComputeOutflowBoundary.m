@@ -22,7 +22,7 @@ else
 end
 
 if w(2) == 0
-    outflow = [outflow "south", "north"];
+    outflow = [outflow "south" "north"];
 elseif w(2) > 0
     outflow = [outflow "north"];
     inflow = [inflow "south"];
