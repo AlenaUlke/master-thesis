@@ -34,6 +34,7 @@ options = optimoptions('paretosearch', 'ParetoSetSize', 80);
         tmp = emission2d .* g;
         average_emissions =  opts.dx^2 * opts.dt * sum(tmp(2:end,2:end,2:end), 'all');
         flux = opts.dt * opts.dx * sum(qq(:, :, 2:end), 'all');
+        queue = 
         val = [-flux; average_emissions];
     end
 end

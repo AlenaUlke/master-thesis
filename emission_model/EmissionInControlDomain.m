@@ -31,10 +31,11 @@ for e = 1:size(emission_on_roads,1)
     for n = 1:opts.N_lwr
         position = road2d{e}(n);
         emission_tmp = kron(distributed_emission(n,:), ones(b_range,1));
+        
 
         if axis == 1
             %size(squeeze(emission(position(1),b_min:b_max,:)))
-            %size(emission_tmp)
+            %size(emission_tmp')
             emission(position(1),b_min:b_max,:) ...
                 = squeeze(emission(position(1),b_min:b_max,:)) + emission_tmp;
             road_counter(position(1),b_min:b_max,:) ...
@@ -50,7 +51,7 @@ end
 
 % replace 0 in road_counter by 1 for numerical purposes
 no_roads = find(road_counter == 0);
-road_counter(no_roads) = 1; 
+road_counter(no_roads) = 1;
 
 emission = emission ./ road_counter;
 

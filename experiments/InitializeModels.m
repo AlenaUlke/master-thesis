@@ -19,17 +19,27 @@ gamma_3 = 0.5; % queue gamma_2 = 0.15, gamma_3 = 0.588 -> ratio gamma_3/gamma_2
 
 % dispersion
 mu = 1e-6;
-v = [1, 1];%/sqrt(2);
-kappa = 0; 
+v = [1, 1];
+kappa = 0.01;  %%%%% kappa = 2;
 w0 = 0;
 
-robin_condition = true;
+% robin_condition = true;
 backwards_in_time = false;
 
 % opts
-Nt = 200; % dt = T / N_t
 N_lwr = 20;
 N_dispersion = 3 * N_lwr;
+
+% Nt = 50;%200; % dt = T / N_t
+
+% this should satisfy the cfl condition
+% for the dispersion model
+dx = L_road / N_lwr; 
+dt_cfl = (v(1)^2 / (2 * mu + abs(v(1)) * dx) ...
+    + v(2)^2 / (2 * mu + abs(v(2)) * dx))^(-1);
+dt_cfl = min(dt_cfl, ...
+    dx * dx / (4 * mu + norm(v,1) * dx));
+Nt =  ceil(3 * T / dt_cfl);
 %dt_cfl = T/400;
 
 %% The traffic model 
@@ -39,7 +49,9 @@ lwr_model.pc = lwr_model.pmax/2;
 lwr_model.Vmax = Vmax;
 
 lwr_model.T = T; 
-lwr_model.L_road = L_road; 
+lwr_model.L_road = L_road;
+
+lwr_model.flux = "greenshield";
 
 
 for e = 1:lwr_model.num_roads
@@ -71,7 +83,7 @@ junctions{4}.incoming = [3];
 junctions{4}.outgoing = [5];
 
 % opts involed in traffic model
-opts.cfl = 0.9; 
+opts.cfl = 0.9; % cfl for traffic model
 opts.T = T;
 
 opts.N_lwr = N_lwr; 
@@ -99,7 +111,7 @@ emission_model.width = road_width;
 
 opts.N_dispersion = N_dispersion;
 %% The dispersion model and the adjoint 
-dispersion_model.robin_condition = robin_condition;
+%dispersion_model.robin_condition = robin_condition;
 dispersion_model.backwards_in_time = backwards_in_time;
 
 dispersion_model.L = L;
