@@ -20,19 +20,16 @@ function w = SolveAdjointEquation(parameters, opts, varargin)
 % T:                final time 
 %
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% %
-if length(varargin) == 1
-    neumann_boundary = varargin{1};
-else
-    neumann_boundary = ComputeOutflowBoundary(parameters.v);
-end
-
 parameters.w0 = 0;
 parameters.v = -parameters.v;
 parameters.source = 1 / (opts.T * parameters.L * parameters.L);
 
 parameters.backwards_in_time = true;
-parameters.robin = true;
 
-w = SolveAdvectionDiffusionEquation(parameters, opts, neumann_boundary);
+% We set in- and outflow given the wind field -v
+parameters.type_inflow_boundary = "Robin";
+parameters.type_outflow_boundary = "Neumann";
+
+w = SolveAdvectionDiffusionEquation(parameters, opts);
 
 end

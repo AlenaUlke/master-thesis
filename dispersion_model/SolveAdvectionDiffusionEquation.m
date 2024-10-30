@@ -1,4 +1,4 @@
-function w = SolveAdvectionDiffusionEquation(parameters, opts, varargin)
+function w = SolveAdvectionDiffusionEquation(parameters, opts)
 % INPUT PARAMETER %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% %
 % parameters defines the coefficents of the advection diffusion equation
 % and has to contain:
@@ -10,6 +10,12 @@ function w = SolveAdvectionDiffusionEquation(parameters, opts, varargin)
 % w0:       function handle or scalar if inital data is constant 
 % robin_conidtion:      bool which encodes if at the outflow boundary Robin
 %                       or Neumann boundary conditions are imposed
+%
+% type_inflow_boundary
+%   type_outflow_boundary: can be "Robin", "Neumann" or "Dirichlet"
+%                          homogeneous Dirichlet boundary condtions are the
+%                          default
+%
 % backwards_in_time:    bool which encodes wether the PDE is solved
 %                       forwards or backwards in time; if backwards the 
 %                       initial condition becomes a final condition
@@ -30,11 +36,12 @@ function w = SolveAdvectionDiffusionEquation(parameters, opts, varargin)
 dx = opts.dx;
 xx = 0:dx:parameters.L;
 
+
 % x-direction x y-direction x time
 w = zeros(opts.N_dispersion + 1, opts.N_dispersion + 1, opts.Nt+1);
 if isa(parameters.w0, 'function_handle')
-    for i=1:opts.N+1
-        for j=1:opts.N+1
+    for i=1:opts.N_dispersion+1
+        for j=1:opts.N_dispersion+1
             w(i,j,1) = parameters.w0(xx(i), xx(j));
         end
     end
@@ -42,14 +49,54 @@ else
     w(:,:,1) = parameters.w0;
 end
 
-if(length(varargin) == 1)
-    neumann_boundary = varargin{1};
-else
-    neumann_boundary = ComputeOutflowBoundary(parameters.v);
+if isa(parameters.source, 'function_handle')
+    source_eval = zeros(opts.N_dispersion + 1, opts.N_dispersion + 1,opts.Nt+1);
+    tt = 0:opts.dt:opts.T;
+    for i=1:opts.N_dispersion+1
+        for j=1:opts.N_dispersion+1
+            for k=1:opts.Nt+1
+                source_eval(i,j,k) = parameters.source(xx(i), xx(j), tt(k));
+            end
+        end
+    end
+    parameters.source = source_eval;
+end
+
+%if(length(varargin) == 1)
+%    neumann_boundary = varargin{1};
+%else
+%    neumann_boundary = ComputeOutflowBoundary(parameters.v);
+%end
+
+%assert((parameters.type_inflow_boundary ~= parameters.type_outflow_boundary) ...
+%    || (parameters.type_inflow_boundary == "Dirichlet"));
+
+outflow_boundary = ComputeOutflowBoundary(parameters.v);
+inflow_boundary = setdiff(["north" "south" "west" "east"], ...
+    outflow_boundary);
+
+switch parameters.type_outflow_boundary
+    case "Robin"
+        robin_boundary = outflow_boundary;
+        neumann_boundary = [];
+    case "Neumann"
+        neumann_boundary = outflow_boundary;
+        robin_boundary = [];
+    otherwise
+        robin_boundary = [];
+        neumann_boundary = [];
+end
+
+switch parameters.type_inflow_boundary
+    case "Robin"
+        robin_boundary = [robin_boundary inflow_boundary];
+    case "Neumann"
+        neumann_boundary = [neumann_boundary inflow_boundary];
 end
 
 % Stiffness matrix and source term
-[A_diff, A_adv] = AssembleStiffnessMatrix(parameters, opts, neumann_boundary);
+[A_diff, A_adv] = AssembleStiffnessMatrix(parameters, opts, ...
+    neumann_boundary, robin_boundary);
 
 % ranges of coordinates for homogeneous Dirichlet data 
 x_range = 2:opts.N_dispersion;
@@ -68,15 +115,30 @@ for edge = neumann_boundary
     end
 end
 
+
+
+for edge = robin_boundary %setdiff(robin_boundary, neumann_boundary)
+    switch edge
+        case "north"
+            y_range = [y_range opts.N_dispersion + 1];
+        case "south"
+            y_range = [1 y_range];
+        case "east"
+            x_range = [x_range opts.N_dispersion + 1];
+        case "west"
+            x_range = [1 x_range];
+    end
+end
+
 N_x = length(x_range);
 N_y = length(y_range);
 
 I = eye(N_x * N_y);
-if opts.implicit
+if opts.implicit % not usable for kappa != 0
     A_expl = I - opts.dt * A_adv;
     A_impl = I - opts.dt * A_diff;
 else
-    A_expl = I - opts.dt * A_adv + opts.dt * A_diff;
+    A_expl = (1 - parameters.kappa) * I - opts.dt * A_adv + opts.dt * A_diff;
     A_impl = I;
 end
 
